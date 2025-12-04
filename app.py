@@ -1,17 +1,29 @@
-
-from flask import Flask, render_template, request, redirect, url_for , flash
+from flask import Flask, render_template, request, redirect, url_for, flash
 from pymongo import MongoClient
-
+from pymongo.errors import ServerSelectionTimeoutError
+import os
+import time
 
 app = Flask(__name__)
-
 app.secret_key = 'Shubham@123'
 
-import os
-mongo_url = os.getenv("MONGO_URI", "mongodb://localhost:27017/employee_db")
-client = MongoClient(mongo_url)
-db = client['employee_db'] 
-collection = db['employees']  
+# MongoDB Connection
+mongo_url = os.getenv("MONGO_URI", "mongodb://mongodb:27017/employee_db")
+client = None
+
+# Wait for MongoDB to be ready
+while True:
+    try:
+        client = MongoClient(mongo_url, serverSelectionTimeoutMS=5000)
+        client.admin.command('ping')
+        print("MongoDB connected!")
+        break
+    except ServerSelectionTimeoutError:
+        print("Waiting for MongoDB...")
+        time.sleep(2)
+
+db = client['employee_db']
+collection = db['employees']
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -19,21 +31,21 @@ def index():
         if 'insert' in request.form:
             duplicate_id = collection.find_one({"empid": request.form['empid']})
             if not duplicate_id:
-                # Insert operation
-                data = {"empid": request.form['empid'],'name': request.form['name'], 'designation': request.form['designation']}
+                data = {
+                    "empid": request.form['empid'],
+                    'name': request.form['name'],
+                    'designation': request.form['designation']
+                }
                 collection.insert_one(data)
                 return redirect(url_for('index'))
             else:
-                flash('Duplicate empid','dupicated')
+                flash('Duplicate empid', 'duplicate')
                 return redirect(url_for('index'))
 
         elif 'update' in request.form:
-            #  Update operation
             document_id = request.form['empid']
             new_name = request.form['name']
             new_designation = request.form['designation']
-       
-            # Update 
             if document_id:
                 collection.update_one(
                     {'empid': document_id},
@@ -42,20 +54,13 @@ def index():
             return redirect(url_for('index'))
 
         elif 'delete' in request.form:
-            #  Delete operation
             document_id = request.form['empid']
-            
-            # Delete 
             if document_id:
                 collection.delete_one({'empid': document_id})
             return redirect(url_for('index'))
 
-    #  Show All Data 
     all_data = list(collection.find())
     return render_template('index.html', data=all_data)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
-
-
-
+    app.run(host='0.0.0.0', port=5000)
