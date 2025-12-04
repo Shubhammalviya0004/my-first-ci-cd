@@ -7,7 +7,9 @@ app = Flask(__name__)
 
 app.secret_key = 'Shubham@123'
 
-client = MongoClient('mongodb://localhost:27017')
+import os
+mongo_url = os.getenv("MONGO_URI", "mongodb://localhost:27017/employee_db")
+client = MongoClient(mongo_url)
 db = client['employee_db'] 
 collection = db['employees']  
 
@@ -54,5 +56,6 @@ def index():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)
+
 
 
